@@ -41,38 +41,41 @@ public class TestExample {
 	
 	public static void Test1() {
 		CodeGraphGenerator GG = new CodeGraphGenerator();
-		GG.setDebugLevel(6);
-		String[] fileList = new String[17];
+		GG.setDebugLevel(0);
+		String[] fileList = new String[2];
 		fileList[0] = "depCodeExamples.Dep";
 		fileList[1] = "depCodeExamples.AA";
-		fileList[2] = "depCodeExamples.Dep$InternalClass";
+		//fileList[2] = "depCodeExamples.Dep$InternalClass";
 		
 		GG.createGraph(fileList);
 
-		System.out.println(GG.callGraphToString());
-		
-		MethodNode startMethod = (MethodNode) GG.depGraph.getNode("void depCodeExamples.AA.foo()V");
-		ArrayList <MethodNode> mnList = GG.depGraph.getMethodDep(startMethod);
-		System.out.println(startMethod.toString()+" depends on:");
+		//System.out.println(GG.callGraphToString());
+
+		String initialNodeName = "{ depCodeExamples.Dep.main([Ljava/lang/String;)V.this } depCodeExamples.Dep.start(ILdepCodeExamples/AA;)V";
+		String finalNodeName = "{ depCodeExamples.AA.m3()V.this } depCodeExamples.AA.foo()V";
+		CodeGraph ReducedGraph = GG.getReducedGraph(initialNodeName, finalNodeName);
+		//System.out.println(ReducedGraph.toString());
+		//System.out.println(GG.depGraphToString());	
+		MethodNode fNode = (MethodNode) GG.depGraph.getNode(finalNodeName);
+		ArrayList <MethodNode> mnList = GG.depGraph.getMethodDep(fNode);
+		System.out.println(fNode.toString()+" depends on:");
 		for(Node n: mnList) {
 			System.out.println("\t"+n.toString());
 		}	
-//		CodeGraph ReducedGraph = GG.getReducedGraph(initialNodeName, finalNodeName);
-//		System.out.println(ReducedGraph.toString());
-//
-//		ArrayList<MethodNode> skipList = GG.getSkipMethodList(ReducedGraph);
-//		System.out.println("==== Skip Method Nodes ====");
-//		int numSkippedMethods=0;
-//		for(MethodNode m: skipList) {
-//			numSkippedMethods++;
-//			System.out.println("\t"+m.toString());
-//		}
-//		System.out.println("==== Number skipped methods : "+numSkippedMethods);
+
+		ArrayList<MethodNode> skipList = GG.getSkipMethodList(fNode);
+		System.out.println("==== Skip Method Nodes ====");
+		int numSkippedMethods=0;
+		for(MethodNode m: skipList) {
+			numSkippedMethods++;
+			System.out.println("\t"+m.toString());
+		}
+		System.out.println("==== Number skipped methods : "+numSkippedMethods);
 	}
 	
 	private static void Test2() {
 		CodeGraphGenerator GG = new CodeGraphGenerator();
-		GG.setDebugLevel(0);
+		GG.setDebugLevel(6);
 		String[] fileList = new String[17];
 
 		fileList[0] = "calc.controller.AbstractController";
@@ -97,13 +100,24 @@ public class TestExample {
 	
 		GG.createGraph(fileList);	
 
-		String initialNodeName = "void calc.view.CalculatorView.equals(Lcalc/view/CalculatorView;)V";
-		String finalNodeName = "void calc.view.CalculatorView.modelChanged(Lcalc/model/ModelEvent;)V";
+	
+		String initialNodeName = "{ calc.view.CalculatorView.equals(Lcalc/view/CalculatorView;)V.this } calc.view.CalculatorView.equals(Lcalc/view/CalculatorView;)V";
+		String finalNodeName = "{ calc.view.CalculatorView.modelChanged(Lcalc/model/ModelEvent;)V.this } calc.view.CalculatorView.modelChanged(Lcalc/model/ModelEvent;)V";
 		//System.out.println(GG.callGraphToString());
 		CodeGraph ReducedGraph = GG.getReducedGraph(initialNodeName, finalNodeName);
-		System.out.println(ReducedGraph.toString());
 
-		ArrayList<MethodNode> skipList = GG.getSkipMethodList(ReducedGraph);
+		System.out.println("START REDUCED GRAPH ====================== ");
+		System.out.println(ReducedGraph.toString());
+		System.out.println("====================== END REDUCED GRAPH ");
+
+		MethodNode fNode = (MethodNode) GG.depGraph.getNode(finalNodeName);
+		ArrayList <MethodNode> mnList = GG.depGraph.getMethodDep(fNode);
+		System.out.println(fNode.toString()+" depends on:");
+		for(Node n: mnList) {
+			System.out.println("\t"+n.toString());
+		}	
+
+		ArrayList<MethodNode> skipList = GG.getSkipMethodList(fNode);
 		System.out.println("==== Skip Method Nodes ====");
 		int numSkippedMethods=0;
 		for(MethodNode m: skipList) {
@@ -150,13 +164,14 @@ public class TestExample {
 	
 		GG.createGraph(fileList);	
 
-		String initialNodeName = "void falsecalc.view.CalculatorView.equals(Lfalsecalc/view/CalculatorView;)V";
-		String finalNodeName = "void falsecalc.view.CalculatorView.modelChanged(Lfalsecalc/model/ModelEvent;)V";
+		String initialNodeName = "{  } falsecalc.view.CalculatorView.equals(Lfalsecalc/view/CalculatorView;)V";
+		String finalNodeName = "{ calc.view.CalculatorView.modelChanged(Lcalc/model/ModelEvent;)V.this } falsecalc.view.CalculatorView.modelChanged(Lfalsecalc/model/ModelEvent;)V";
 System.out.println(GG.callGraphToString());
-		CodeGraph ReducedGraph = GG.getReducedGraph(initialNodeName, finalNodeName);
+
+CodeGraph ReducedGraph = GG.getReducedGraph(initialNodeName, finalNodeName);
 		System.out.println(ReducedGraph.toString());
-
-
+		
+		System.out.println("=====================");
 	}
 
 

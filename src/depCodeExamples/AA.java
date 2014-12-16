@@ -4,21 +4,24 @@ public class AA {
 	int aa;
 	
 	public void foo() {
-		int b = 0;
-		switch(aa) {
-		case 0: aa = 0; break;
-		case 1: m2(); break;
-		case 2: aa = b--;
-		case 3: aa = aa*aa; break;
-		case 4: ;break;
-		}	
+//		int b = 0;
+//		switch(aa) {
+//		case 0: aa = 0; break;
+//		case 1: m2(); break;
+//		case 2: aa = b--;
+//		case 3: aa = aa*aa; break;
+//		case 4: ;break;
+//		}	
 	}
 	
-	public void m2() {
-		
-	}
+//	public void m2() {
+//		
+//	}
 	
 	public void m3() {
 		foo();
 	}
+//	public int  mm3(int i, int ii) {
+//		return 5;
+//	}
 }

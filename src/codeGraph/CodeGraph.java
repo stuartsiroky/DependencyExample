@@ -15,7 +15,7 @@ import depObj.VarNode;
 import depObj.LocVarNode;
 
 public class CodeGraph {
-	int debugLevel = 2;
+	int debugLevel = 0;
 
 	ArrayList<Node> nodeList = new ArrayList<Node>();
 	AdjacencyList adjList = new AdjacencyList();
@@ -50,8 +50,8 @@ public class CodeGraph {
 		}
 	}
 
-	public MethodNode addMethodNode(String name) {
-		MethodNode mn = new MethodNode(name);
+	public MethodNode addMethodNode(String name, String inst) {
+		MethodNode mn = new MethodNode(name, inst);
 		return (MethodNode) addNode(mn);
 	}
 
@@ -89,7 +89,7 @@ public class CodeGraph {
 		return out;
 	}
 
-	public Node getNode(String string) {
+	public Node getNode(String string) { 
 		Node n = new Node(string);
 
 		if (nodeList.contains(n)) {
