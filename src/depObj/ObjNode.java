@@ -1,11 +1,13 @@
 package depObj;
 
+import org.apache.bcel.generic.Type;
+
 public class ObjNode extends GenVarNode {
 
 	String instName;
 	
 	public ObjNode(String argName, int sz) {
-		super(argName,sz);
+		super(argName,sz,Type.OBJECT);
 		setInstanceName(argName);
 	}
 

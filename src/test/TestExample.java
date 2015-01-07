@@ -1,9 +1,11 @@
 package test;
 
 import java.util.ArrayList;
+import java.util.Set;
 
 import codeGraph.CodeGraph;
 import codeGraph.CodeGraphGenerator;
+import depObj.Edge;
 import depObj.MethodNode;
 import depObj.Node;
 
@@ -17,14 +19,14 @@ public class TestExample {
 		System.out.println("==========================");
 		System.out.println("========== Test 1 ========");
 		System.out.println("==========================");
-		//Test1();
+		Test1();
 		System.out.println("==========================");
 		System.out.println("==========================\n\n");
 
 		System.out.println("==========================");
 		System.out.println("========== Test 2 ========");
 		System.out.println("==========================");
-		Test2();
+		//Test2();
 		System.out.println("==========================");
 		System.out.println("==========================\n\n");
 
@@ -41,7 +43,7 @@ public class TestExample {
 	
 	public static void Test1() {
 		CodeGraphGenerator GG = new CodeGraphGenerator();
-		GG.setDebugLevel(0);
+		GG.setDebugLevel(6);
 		String[] fileList = new String[2];
 		fileList[0] = "depCodeExamples.Dep";
 		fileList[1] = "depCodeExamples.AA";
@@ -50,9 +52,11 @@ public class TestExample {
 		GG.createGraph(fileList);
 
 		//System.out.println(GG.callGraphToString());
-
+		System.out.println(GG.depGraphToString());
 		String initialNodeName = "{ depCodeExamples.Dep.main([Ljava/lang/String;)V.this } depCodeExamples.Dep.start(ILdepCodeExamples/AA;)V";
-		String finalNodeName = "{ depCodeExamples.AA.m3()V.this } depCodeExamples.AA.foo()V";
+		String finalNodeName = "{ depCodeExamples.Dep.start(ILdepCodeExamples/AA;)V.Obj } depCodeExamples.AA.m8()I";
+//		String finalNodeName = "{ depCodeExamples.Dep.main([Ljava/lang/String;)V.ObjA1 } depCodeExamples.AA.m9()V";
+//		String finalNodeName = "{ depCodeExamples.AA.m3()V.this } depCodeExamples.AA.foo()V";
 		CodeGraph ReducedGraph = GG.getReducedGraph(initialNodeName, finalNodeName);
 		//System.out.println(ReducedGraph.toString());
 		//System.out.println(GG.depGraphToString());	
@@ -75,7 +79,7 @@ public class TestExample {
 	
 	private static void Test2() {
 		CodeGraphGenerator GG = new CodeGraphGenerator();
-		GG.setDebugLevel(6);
+		GG.setDebugLevel(2);
 		String[] fileList = new String[17];
 
 		fileList[0] = "calc.controller.AbstractController";

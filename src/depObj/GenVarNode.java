@@ -1,12 +1,16 @@
 package depObj;
 
-public class GenVarNode extends Node {
+import org.apache.bcel.generic.Type;
 
-	private int sz = 0; // size in words
+public class GenVarNode extends Node {
 	
-	public GenVarNode(String argName, int sz) {
+	private int sz = 0; // size in words
+	private Type varType;
+	
+	public GenVarNode(String argName, int sz, Type t) {
 		super(argName);
 		this.sz = sz;
+		varType = t; 
 	}
 
 	public int getSz() {
@@ -15,6 +19,14 @@ public class GenVarNode extends Node {
 
 	public void setSz(int sz) {
 		this.sz = sz;
+	}
+
+	public Type getVarType() {
+		return varType;
+	}
+
+	public void setVarType(Type varType) {
+		this.varType = varType;
 	}
 
 }

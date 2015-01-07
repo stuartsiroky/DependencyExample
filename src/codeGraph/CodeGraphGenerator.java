@@ -73,6 +73,7 @@ public class CodeGraphGenerator {
 	// with actual implementation later.
 	private ArrayList<String> interfaces_used = new ArrayList<String>();
 	private ArrayList<MethodNode> thisMethodList = new ArrayList<MethodNode>();
+
 	public CodeGraph depGraph = new CodeGraph();
 	public CodeGraph callGraph = new CodeGraph();
 	// when we encounter a class that implements an interface we will add that
@@ -84,6 +85,7 @@ public class CodeGraphGenerator {
 	private String curMethodName;
 	private MethodNode curMethodNode;
 	private Map<Integer, String> locVarHMap;
+	private Map<String, ArrayList<VarNode>> typeDepHMap = new HashMap<String, ArrayList<VarNode>>();
 	private Stack<Node> locStack;
 	private ArrayList<BranchNode> actBranch;
 
@@ -99,8 +101,8 @@ public class CodeGraphGenerator {
 		}
 		cleanupAnyPureInterface(callGraph);
 		cleanupAnyPureInterface(depGraph);
-		cleanupThisMethodHookup(callGraph,true);
-		cleanupThisMethodHookup(depGraph,false);
+		cleanupThisMethodHookup(callGraph, true);
+		cleanupThisMethodHookup(depGraph, false);
 	}
 
 	public void parseClass(String className) throws ClassNotFoundException {
@@ -122,25 +124,25 @@ public class CodeGraphGenerator {
 		for (Method m : cg.getMethods()) {
 			actBranch = new ArrayList<BranchNode>();
 			MethodGen mg = new MethodGen(m, cg.getClassName(), cpg);
-			LocalVariableGen lvg[] = mg.getLocalVariables();
-			InstructionList il = mg.getInstructionList();
-			InstructionHandle[] handles = il.getInstructionHandles();
+			locStack = new Stack<Node>();
 
 			curMethodName = printMethodName(cg, m);
-			//FIXMEString instName = cg.getClassName() + ".this";
-			String instName = curMethodName+".this";
-			curMethodNode = depGraph.addMethodNode(curMethodName, instName);
-			@SuppressWarnings("unused")
-			boolean newAddition = callGraph.strictAddNode(curMethodNode);
+			if (!(curMethodName.contains("<init>") || curMethodName.contains("<clinit>"))) {
+				LocalVariableGen lvg[] = mg.getLocalVariables();
+				InstructionList il = mg.getInstructionList();
+				InstructionHandle[] handles = il.getInstructionHandles();
 
-			printDebug("==== " + curMethodName + " ====", 2);
+				String instName = curMethodName + ".this";
+				curMethodNode = depGraph.addMethodNode(curMethodName, instName);
+				@SuppressWarnings("unused")
+				boolean newAddition = callGraph.strictAddNode(curMethodNode);
 
-			extractMethodVariables(cg, m, lvg);
-			// if (!(curMethodName.contains("<init>") || curMethodName
-			// .contains("<clinit>"))) {
-			// ignore the initialization since they will all be included
-			decodeInstructions(cpg, handles);
-			// }
+				printDebug("==== " + curMethodName + " ====", 2);
+
+				extractMethodVariables(cg, m, lvg);
+				// ignore the initialization since they will all be included
+				decodeInstructions(cpg, handles);
+			}
 
 			printDebug("\n", 2);
 		} // methods
@@ -153,9 +155,12 @@ public class CodeGraphGenerator {
 		for (Field f : fs) {
 			printDebug("  " + f.toString(), 2);
 			String name = cg.getClassName() + "." + f.getName();
-			printDebug("\tname :"+f.getName()+"\ttype :"+f.getType()+"\tsize :"+f.getType().getSize(),4);
-			@SuppressWarnings("unused")
-			VarNode vn = depGraph.addVarNode(name, f.getType().getSize());
+			printDebug("\tname :" + f.getName() + "\ttype :" + f.getType()
+					+ "\tsize :" + f.getType().getSize(), 4);
+			VarNode vn = depGraph.addVarNode(name, f.getType().getSize(),
+					f.getType());
+			Type curType = f.getType();
+			insertFieldRef(curType.toString(), vn);
 		}
 		printDebug("==============================\n", 2);
 	}
@@ -163,10 +168,9 @@ public class CodeGraphGenerator {
 	private void extractMethods(ClassGen cg) {
 		printDebug("=========== Methods ===========", 2);
 		for (Method m : cg.getMethods()) {
-			locStack = new Stack<Node>();
 			String NodeName = printMethodName(cg, m);
 			// FIXME String instName = cg.getClassName() + ".this";
-			String instName = NodeName+".this";//FIXME
+			String instName = NodeName + ".this";// FIXME
 			printDebug("  " + instName + NodeName, 2);
 			MethodNode mn = depGraph.addMethodNode(NodeName, instName);
 			@SuppressWarnings("unused")
@@ -182,12 +186,14 @@ public class CodeGraphGenerator {
 		for (LocalVariableGen l : lvg) {
 			String mName = printMethodName(cg, m); // This is ok
 			printDebug("LocVar " + l.toString() + ":" + l.getIndex(), 2);
-			printDebug("\tindex :"+l.getIndex()+"\tname  :"+l.getName()+"\ttype  :"+l.getType()+"\tsize : "+l.getType().getSize(),4);
-//			printDebug("\tLocVar "+l.getLocalVariable(cg.getConstantPool()).toString(),4);
+			printDebug("\tindex :" + l.getIndex() + "\tname  :" + l.getName()
+					+ "\ttype  :" + l.getType() + "\tsize : "
+					+ l.getType().getSize(), 4);
+			// printDebug("\tLocVar "+l.getLocalVariable(cg.getConstantPool()).toString(),4);
 
 			@SuppressWarnings("unused")
 			LocVarNode lvn = depGraph.addLocVarNode(mName + "." + l.getName(),
-					l.getType().getSize());
+					l.getType().getSize(), l.getType());
 			locVarHMap.put(l.getIndex(), mName + "." + l.getName());
 		}
 	}
@@ -255,7 +261,7 @@ public class CodeGraphGenerator {
 					if (depNode == null) {
 						depNode = depGraph.addVarNode(firt.toString() + "."
 								+ fi.getFieldName(cpg), fi.getType(cpg)
-								.getSize());
+								.getSize(), fi.getType(cpg));
 					}
 				} else if (ni instanceof StoreInstruction) {
 					StoreInstruction sti = (StoreInstruction) ni;
@@ -263,6 +269,12 @@ public class CodeGraphGenerator {
 						depNode = depGraph.getNode(locVarHMap.get(sti
 								.getIndex()));
 					}
+				} else if (ni instanceof ReturnInstruction) {
+					depNode = curMethodNode;// this handles the implict var return
+					// could be other case of implicit var: return x+y;
+				} else {
+					System.err
+							.println("For Arithmatic Type of result is not a field/store/return");
 				}
 			}
 			int cstack = ai.consumeStack(cpg);
@@ -273,6 +285,9 @@ public class CodeGraphGenerator {
 					depGraph.addEdge(depNode, n);
 				}
 			}
+			locStack.push(depNode);
+			printDebug("PUSH  Arith result node " + depNode.toString(), 3);
+
 		}
 	}
 
@@ -384,7 +399,6 @@ public class CodeGraphGenerator {
 		printDebug("\tname        " + tNodeName, 2);
 		if (create) {
 			int cstack = ii.consumeStack(cpg);
-			// String instName = "NULL"; // FIXME??
 			String instName = ""; // FIXME??
 			Stack<Node> mStack = new Stack<Node>();
 			while (cstack > 0) {
@@ -396,14 +410,13 @@ public class CodeGraphGenerator {
 			if (!(mStack.size() > numArgs)) { // pass itself as an argument
 				Node pNode = mStack.peek();
 				// this is just a var so this is ok
-				instName = pNode.getName(); //FIXME
-			
+				instName = pNode.getName(); 
 				printDebug("    Instance node " + pNode.toString(), 3);
 			}
 			while (mStack.size() > numArgs) {
 				Node pNode = mStack.pop();
 				// this is just a var so this is ok
-				instName = pNode.getName(); //FIXME
+				instName = pNode.getName();
 				printDebug("    Instance node " + pNode.toString(), 3);
 			}
 
@@ -425,7 +438,7 @@ public class CodeGraphGenerator {
 				}
 				numArgs--;
 			}
-	
+
 			if (ii.produceStack(cpg) > 0) {
 				locStack.push(tNode);
 				printDebug("PUSH Mnode " + tNode.toString(), 3);
@@ -434,9 +447,13 @@ public class CodeGraphGenerator {
 				if (ni instanceof FieldInstruction) {
 					FieldInstruction fi = (FieldInstruction) ni;
 					ReferenceType firt = fi.getReferenceType(cpg);
-					Node n = depGraph.getNode(firt.toString() + "."
-							+ fi.getFieldName(cpg));
-					depGraph.addEdge(n, tNode);
+					// Node n = depGraph.getNode(firt.toString() + "."
+					// + fi.getFieldName(cpg));
+					VarNode vn = depGraph.addVarNode(
+							firt.toString() + "." + fi.getFieldName(cpg), fi
+									.getFieldType(cpg).getSize(), fi
+									.getFieldType(cpg));
+					depGraph.addEdge(vn, tNode);
 				} else if (ni instanceof StoreInstruction) {
 					StoreInstruction sti = (StoreInstruction) ni;
 					LocVarNode n = (LocVarNode) depGraph.getNode(locVarHMap
@@ -459,9 +476,12 @@ public class CodeGraphGenerator {
 		if (create) {
 			VarNode vn = depGraph.addVarNode(
 					rt.toString() + "." + fi.getFieldName(cpg), fi
-							.getFieldType(cpg).getSize());
+							.getFieldType(cpg).getSize(), fi.getFieldType(cpg));
 			if (fi.consumeStack(cpg) > 0) {
-				showPOP("POP field ");
+				Node n = locStack.pop();
+				if (!(n instanceof ConstNode)) {
+					depGraph.addEdge(vn, n);
+				}
 			}
 			if (fi.produceStack(cpg) > 0) {
 				locStack.push(vn);
@@ -529,7 +549,8 @@ public class CodeGraphGenerator {
 			String lvhmapNode = locVarHMap.get(lvi.getIndex());
 			LocVarNode n;
 			if (lvhmapNode == null) {
-				n = new LocVarNode("NULL", 0); // HACK to get it to work.
+				n = new LocVarNode("NULL", 0, Type.NULL); // HACK to get it to
+															// work.
 			} else {
 				n = (LocVarNode) depGraph.getNode(lvhmapNode);
 			}
@@ -587,6 +608,7 @@ public class CodeGraphGenerator {
 		printDebug("\tcstack " + insn.consumeStack(cpg), 4);
 		printDebug("\tpstack " + insn.produceStack(cpg), 4);
 		genericPushPop(cpg, insn, "ReturnInstruction");
+		// ReturnInstruction ri = (ReturnInstruction) insn;
 	}
 
 	private void decodeConstInstruction(ConstantPoolGen cpg,
@@ -704,7 +726,7 @@ public class CodeGraphGenerator {
 					String i_name = printIFMethodName(i.getClassName(), m);
 					String m_name = printMethodName(cg, m);
 					// FIXME String instName = cg.getClassName() + ".this";
-					String instName = m_name+".this"; //FIXME
+					String instName = m_name + ".this"; // FIXME
 					MethodNode mn = depGraph.addMethodNode(m_name, instName);
 					insertInterfacePair(i_name, mn);
 				}
@@ -731,9 +753,24 @@ public class CodeGraphGenerator {
 		}
 	}
 
+	private void insertFieldRef(String classType, VarNode fieldVar) {
+		ArrayList<VarNode> list;
+		if (!implemented_interfaces.containsKey(classType)) {
+			list = new ArrayList<VarNode>();
+			list.add(fieldVar);
+			typeDepHMap.put(classType, list);
+		} else {
+			list = typeDepHMap.get(classType);
+			if (!list.contains(fieldVar)) {
+				list.add(fieldVar);
+				typeDepHMap.put(classType, list);
+			}
+		}
+	}
+
 	private void cleanupAnyPureInterface(CodeGraph graph) {
 		for (String i_used : interfaces_used) {
-			//System.out.println("INTERFACE USED : " + i_used.toString());
+			// System.out.println("INTERFACE USED : " + i_used.toString());
 			if (implemented_interfaces.containsKey(i_used)) {
 				// get all method nodes with the interface as a method.
 				// loop through them to fix them.
@@ -747,7 +784,7 @@ public class CodeGraphGenerator {
 			ArrayList<MethodNode> fixList = getMatchingNodes2MethodName(graph,
 					m.getMethodName());
 			fixList.remove(m);
-			if(callgraph) {
+			if (callgraph) {
 				cleanupMethodHookup(graph, fixList, m);
 			} else {
 				cleanupMethodDepHookup(graph, fixList, m);
@@ -774,12 +811,12 @@ public class CodeGraphGenerator {
 					}
 				}
 			}
-			 //for(Edge e: e_to) {
-			 //System.out.println("\tTO  : "+e.toString());
-			 //}
-			 //for(Edge e: e_from) {
-			 //System.out.println("\tFROM: "+e.toString());
-			 //}
+			// for(Edge e: e_to) {
+			// System.out.println("\tTO  : "+e.toString());
+			// }
+			// for(Edge e: e_from) {
+			// System.out.println("\tFROM: "+e.toString());
+			// }
 			insertMethodEdge(graph, target, e_from, e_to);
 			if (remove) {
 				removeGraphNode(graph, mNode, e_from, e_to);
@@ -790,11 +827,11 @@ public class CodeGraphGenerator {
 	private void cleanupMethodHookup(CodeGraph graph, ArrayList<MethodNode> ml,
 			MethodNode target) {
 		List<Edge> mEdges = graph.getAdjacent(target);
-		//System.out.println("THIS: " + target.toString());
+		// System.out.println("THIS: " + target.toString());
 		ArrayList<Node> targetToList = new ArrayList<Node>();
 		for (Edge e : mEdges) {
 			targetToList.add(e.getTo());
-			//System.out.println("\tTO " + e.getTo().toString());
+			// System.out.println("\tTO " + e.getTo().toString());
 		}
 
 		for (MethodNode mNode : ml) {
@@ -805,31 +842,31 @@ public class CodeGraphGenerator {
 		}
 	}
 
-	private void cleanupMethodDepHookup(CodeGraph graph, ArrayList<MethodNode> ml,
-			MethodNode target) {
+	private void cleanupMethodDepHookup(CodeGraph graph,
+			ArrayList<MethodNode> ml, MethodNode target) {
 		Collection<Edge> e_all = graph.adjList.getAllEdges();
 		ArrayList<Edge> e_to = new ArrayList<Edge>();
 
-		//System.out.println("THIS: " + target.toString());
+		// System.out.println("THIS: " + target.toString());
 		if (!e_all.isEmpty()) {
 			for (Edge e : e_all) {
 				Node to = e.getTo();
 				if (to.equals(target)) {
 					e_to.add(e);
-					//System.out.println("\t EDGE "+e.toString());
+					// System.out.println("\t EDGE "+e.toString());
 				}
 			}
 		}
 		ArrayList<Node> targetFromList = new ArrayList<Node>();
 		for (Edge e : e_to) {
 			targetFromList.add(e.getFrom());
-			//System.out.println("\tFROM " + e.getFrom().toString());
+			// System.out.println("\tFROM " + e.getFrom().toString());
 		}
 
 		for (MethodNode mNode : ml) {
 			for (Node targetFrom : targetFromList) {
-				graph.addEdge(targetFrom,mNode);
-				 //System.out.println("  ADD edge "+targetFrom.toString()+"->"+mNode.toString());
+				graph.addEdge(targetFrom, mNode);
+				// System.out.println("  ADD edge "+targetFrom.toString()+"->"+mNode.toString());
 			}
 		}
 	}
@@ -858,11 +895,13 @@ public class CodeGraphGenerator {
 		for (MethodNode s_im : s_list) {
 			for (Edge e : e_to) {
 				graph.addEdge(e.getFrom(), s_im);
-				//System.out.println("ADDED edge " + e.getFrom() + "->"+s_im.toString());
+				// System.out.println("ADDED edge " + e.getFrom() +
+				// "->"+s_im.toString());
 			}
 			for (Edge e : e_from) {
 				graph.addEdge(s_im, e.getTo());
-			//System.out.println("ADDED edge " +s_im.toString()+"->"+e.getFrom());
+				// System.out.println("ADDED edge "
+				// +s_im.toString()+"->"+e.getFrom());
 			}
 		} // replacement
 	}
@@ -929,7 +968,7 @@ public class CodeGraphGenerator {
 	private ArrayList<MethodNode> getAllPathMethods(CodeGraph reducedGraph) {
 		ArrayList<MethodNode> depMethodList = new ArrayList<MethodNode>();
 		ArrayList<Node> callNodes = reducedGraph.getNodeList();
-//		ArrayList <MethodNode> mnList = GG.depGraph.getMethodDep(fNode);
+		// ArrayList <MethodNode> mnList = GG.depGraph.getMethodDep(fNode);
 		for (Node n : callNodes) {
 			MethodNode mn = (MethodNode) n;
 			if (!depMethodList.contains(mn)) {
@@ -949,7 +988,7 @@ public class CodeGraphGenerator {
 	public ArrayList<MethodNode> getSkipMethodList(MethodNode finalNode) {
 		ArrayList<MethodNode> keepList = depGraph.getMethodDep(finalNode);
 		callGraph.addInitMethods(keepList);
-//		ArrayList<MethodNode> keepList = getAllPathMethods(reducedGraph);
+		// ArrayList<MethodNode> keepList = getAllPathMethods(reducedGraph);
 		ArrayList<MethodNode> skipList = new ArrayList<MethodNode>();
 
 		for (Node n : callGraph.getNodeList()) {

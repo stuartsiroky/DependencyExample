@@ -1,5 +1,10 @@
 package codeGraph;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -14,11 +19,13 @@ import depObj.Node.COLOR;
 import depObj.VarNode;
 import depObj.LocVarNode;
 
+import org.apache.bcel.generic.Type;
+
 public class CodeGraph {
 	int debugLevel = 0;
 
 	ArrayList<Node> nodeList = new ArrayList<Node>();
-	AdjacencyList adjList = new AdjacencyList();
+	public AdjacencyList adjList = new AdjacencyList();
 
 	int nodeVisitCnt;
 	int numNodesStarting;
@@ -61,13 +68,13 @@ public class CodeGraph {
 		return (BranchNode) addNode(bn);
 	}
 
-	public VarNode addVarNode(String name, int sz) {
-		VarNode vn = new VarNode(name, sz);
+	public VarNode addVarNode(String name, int sz, Type t) {
+		VarNode vn = new VarNode(name, sz, t);
 		return (VarNode) addNode(vn);
 	}
 
-	public LocVarNode addLocVarNode(String name, int sz) {
-		LocVarNode lvn = new LocVarNode(name, sz);
+	public LocVarNode addLocVarNode(String name, int sz, Type t) {
+		LocVarNode lvn = new LocVarNode(name, sz, t);
 		return (LocVarNode) addNode(lvn);
 	}
 
@@ -138,7 +145,7 @@ public class CodeGraph {
 					+ methodCnt, 2);
 		}
 		// Get any <init> methods and add them to the list
-		//addInitMethods(methodList);
+		addInitMethods(methodList);
 		return methodList;
 	}
 
@@ -227,9 +234,46 @@ public class CodeGraph {
 		}
 	}
 
-
 	public ArrayList<Node> getNodeList() {
 		return nodeList;
 	}
 
+	public void write_to_file(String outfile) throws IOException {
+		PrintWriter out = null;
+		try {
+			out = new PrintWriter(new FileWriter(outfile));
+			out.print(this.toString());
+		} finally {
+			if (out != null) {
+				out.close();
+			}
+		}
+	}
+
+	public void read_from_file(String infile) throws IOException {
+		BufferedReader in = null;
+
+		try {
+			in = new BufferedReader(new FileReader(infile));
+			String text = in.readLine();
+			while(text != null) {
+				//TODO create nodes
+//				if(matchesTrans(text)) {
+//				}
+//				else if(matchesFNode(text)) {
+//				}
+//				else if(matchesCNode(text)) {
+//				}
+				text = in.readLine();
+			}
+			System.out.println("READIN\n"+toString());
+		} finally {
+			if (in != null) {
+				in.close();
+			}
+		}
+	}
+		
+	
+	
 }
